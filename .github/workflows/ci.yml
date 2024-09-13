@@ -1,11 +1,8 @@
 name: ci
 
 on:
-  push:
-    branches:
-      - main
   schedule:
-    - cron: "25 7-10 * * *"
+    - cron: "0 0 */3 * *"  # 每两天运行一次
 
 jobs:
   autogreen:
@@ -15,14 +12,30 @@ jobs:
       contents: write
   
     steps:
-      - name: Clone repository
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Auto green
+      - name: Configure Git
         run: |
           git config --local user.email "liunique@qq.com"
           git config --local user.name "${{ github.actor }}"
-          git remote set-url origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-          git pull --rebase
-          git commit --allow-empty -m "a commit a day keeps your girlfriend away"
+
+      - name: Determine if commit is needed
+        id: commit_decision
+        run: |
+          # 生成 0 或 1 以决定是否提交
+          RANDOM_NUMBER=$(shuf -i 0-1 -n 1)
+          if [ $RANDOM_NUMBER -eq 1 ]; then
+            echo "COMMIT_REQUIRED=true" >> $GITHUB_ENV
+          else
+            echo "COMMIT_REQUIRED=false" >> $GITHUB_ENV
+          fi
+
+      - name: Update file and commit
+        if: env.COMMIT_REQUIRED == 'true'
+        run: |
+          # 在 README.md 文件中追加当前日期
+          echo "Update timestamp: $(date)" >> README.md
+          git add README.md
+          git commit -m "Update README with current timestamp"
           git push
